@@ -35,8 +35,8 @@ install: venv
 # Run development server
 dev: venv
 	@echo "Running FastAPI in development mode..."
-	ENV=development DOTENV_FILE=$(ENV_FILE_DEV) source $(ACTIVATE) && \
-	uvicorn $(APP_MODULE) --reload --host 127.0.0.1 --port $(PORT)
+	bash -c 'ENV=development DOTENV_FILE=$(ENV_FILE_DEV) source $(ACTIVATE) && \
+	uvicorn $(APP_MODULE) --reload --host 127.0.0.1 --port $(PORT)'
 
 # Run production server
 prod: venv

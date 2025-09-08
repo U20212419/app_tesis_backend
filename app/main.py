@@ -3,7 +3,12 @@
 import os
 from fastapi import FastAPI
 from dotenv import load_dotenv
-from app.routes import test
+from app.routes import (test,
+                        semester,
+                        course,
+                        course_in_semester,
+                        section,
+                        assessment)
 
 # Load environment variables from .env file
 env = os.getenv("ENV", "development")
@@ -19,3 +24,8 @@ app = FastAPI(
 
 # Register routes
 app.include_router(test.router)
+app.include_router(semester.router)
+app.include_router(course.router)
+app.include_router(course_in_semester.router)
+app.include_router(section.router)
+app.include_router(assessment.router)
