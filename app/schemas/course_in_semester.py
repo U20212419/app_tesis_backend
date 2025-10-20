@@ -1,6 +1,9 @@
 """Schemas for CourseInSemester operations."""
 
+from typing import Optional
 from pydantic import BaseModel
+
+from app.schemas.course import CourseRead
 
 class CourseInSemesterBase(BaseModel):
     """Base schema for CourseInSemester."""
@@ -12,6 +15,9 @@ class CourseInSemesterCreate(CourseInSemesterBase):
 
 class CourseInSemesterRead(CourseInSemesterBase):
     """Schema for reading a CourseInSemester."""
+    assessment_count: Optional[int] = None
+    section_count: Optional[int] = None
+    course: Optional[CourseRead] = None
     class Config:
         """Enable ORM mode for compatibility with SQLAlchemy models."""
         orm_mode = True
