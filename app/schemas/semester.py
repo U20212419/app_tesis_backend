@@ -1,7 +1,7 @@
 """Schemas for Semester operations."""
 
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class SemesterBase(BaseModel):
     """Base schema for Semester."""
@@ -15,6 +15,4 @@ class SemesterRead(SemesterBase):
     """Schema for reading a Semester."""
     id_semester: int
     course_count: Optional[int] = None
-    class Config:
-        """Enable ORM mode for compatibility with SQLAlchemy models."""
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

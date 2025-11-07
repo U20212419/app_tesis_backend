@@ -1,6 +1,6 @@
 """Schemas for Section operations."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class SectionBase(BaseModel):
     """Base schema for Section."""
@@ -14,6 +14,4 @@ class SectionCreate(SectionBase):
 class SectionRead(SectionBase):
     """Schema for reading a Section."""
     id_section: int
-    class Config:
-        """Enable ORM mode for compatibility with SQLAlchemy models."""
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

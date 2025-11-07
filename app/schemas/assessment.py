@@ -1,6 +1,6 @@
 """Schemas for Assessment operations."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class AssessmentBase(BaseModel):
     """Base schema for Assessment."""
@@ -16,6 +16,4 @@ class AssessmentCreate(AssessmentBase):
 class AssessmentRead(AssessmentBase):
     """Schema for reading a Assessment."""
     id_assessment: int
-    class Config:
-        """Enable ORM mode for compatibility with SQLAlchemy models."""
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
