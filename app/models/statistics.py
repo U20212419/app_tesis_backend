@@ -1,7 +1,10 @@
 """Model definition for Statistics table."""
 
-from sqlalchemy import JSON, Column, ForeignKey, Integer
-from sqlalchemy.orm import relationship
+from datetime import datetime
+from typing import Optional
+from sqlalchemy import Boolean, JSON, ForeignKey, Integer, TIMESTAMP
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.sql import func
 
 from app.db import Base
 
@@ -9,13 +12,28 @@ class Statistics(Base):
     """Statistics model."""
     __tablename__ = "Statistics"
 
-    id_section = Column(Integer, ForeignKey("Section.id_section"), primary_key=True)
-    id_assessment = Column(Integer, ForeignKey("Assessment.id_assessment"), primary_key=True)
-    stats = Column(JSON, nullable=False)
+    id_section: Mapped[int] = mapped_column(
+        Integer, ForeignKey("Section.id_section"), primary_key=True
+    )
+    id_assessment: Mapped[int] = mapped_column(
+        Integer, ForeignKey("Assessment.id_assessment"), primary_key=True
+    )
+    stats: Mapped[dict] = mapped_column(JSON, nullable=False)
 
-    section = relationship(
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True),
+                                                 server_default=func.now(),
+                                                 nullable=False)
+    modified_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True),
+                                                  server_default=func.now(),
+                                                  onupdate=func.now(),
+                                                  nullable=False)
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+
+    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
+
+    section: Mapped["Section"] = relationship( # type: ignore
         "Section", back_populates="statistics"
     )
-    assessment = relationship(
+    assessment: Mapped["Assessment"] = relationship( # type: ignore
         "Assessment", back_populates="statistics"
     )

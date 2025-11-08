@@ -1,7 +1,7 @@
 """Model definition for Assessment table."""
 
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 from sqlalchemy import Boolean, ForeignKeyConstraint, Integer, String, TIMESTAMP
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -41,6 +41,6 @@ class Assessment(Base):
     course_in_semester: Mapped["CourseInSemester"] = relationship( # type: ignore
         "CourseInSemester", back_populates="assessments", foreign_keys=[id_semester, id_course]
     )
-    statistics: Mapped["Statistics"] = relationship( # type: ignore
-        "Statistics", back_populates="assessment", cascade="all, delete-orphan"
+    statistics: Mapped[List["Statistics"]] = relationship( # type: ignore
+        "Statistics", back_populates="assessment"
     )

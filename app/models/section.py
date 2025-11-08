@@ -1,7 +1,7 @@
 """Model definition for Section table."""
 
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 from sqlalchemy import Boolean, ForeignKeyConstraint, Integer, String, TIMESTAMP
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -39,6 +39,6 @@ class Section(Base):
     course_in_semester: Mapped["CourseInSemester"] = relationship( # type: ignore
         "CourseInSemester", back_populates="sections", foreign_keys=[id_semester, id_course]
     )
-    statistics: Mapped["Statistics"] = relationship( # type: ignore
-        "Statistics", back_populates="section", cascade="all, delete-orphan"
+    statistics: Mapped[List["Statistics"]] = relationship( # type: ignore
+        "Statistics", back_populates="section"
     )

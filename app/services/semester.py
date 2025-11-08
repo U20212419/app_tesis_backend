@@ -1,13 +1,16 @@
 """Service for handling semester-related operations."""
 
 from fastapi import Depends
-from sqlalchemy import and_
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 
 from app.db import get_db
+from app.models.assessment import Assessment
 from app.models.course_in_semester import CourseInSemester
+from app.models.section import Section
 from app.models.semester import Semester
+from app.models.statistics import Statistics
 from app.schemas.semester import SemesterCreate
 
 class SemesterService:
@@ -88,14 +91,87 @@ class SemesterService:
             self.db.commit()
             self.db.refresh(db_semester)
         return db_semester
-    
+
     def delete_semester(self, semester_id: int, user_id: str):
         """Soft delete a semester from the database."""
         db_semester = self.get_semester(semester_id, user_id)
         if db_semester:
-            db_semester.is_deleted = True
-            db_semester.deleted_at = func.now()
-            db_semester.active_semester_key = None
-            self.db.commit()
-            self.db.refresh(db_semester)
+            try:
+                assessment_id_tuples = (
+                    self.db.query(Assessment.id_assessment)
+                    .filter(
+                        Assessment.id_semester == semester_id,
+                        Assessment.is_deleted.is_(False)
+                    )
+                ).all()
+
+                assessment_ids_to_delete = [item[0] for item in assessment_id_tuples]
+
+                section_id_tuples = (
+                    self.db.query(Section.id_section)
+                    .filter(
+                        Section.id_semester == semester_id,
+                        Section.is_deleted.is_(False)
+                    )
+                ).all()
+
+                section_ids_to_delete = [item[0] for item in section_id_tuples]
+
+                # Soft delete associated statistics via cascade from Assessments and Sections
+                self.db.query(Statistics).filter(
+                    or_(
+                        Statistics.id_assessment.in_(assessment_ids_to_delete),
+                        Statistics.id_section.in_(section_ids_to_delete)
+                    ),
+                    Statistics.is_deleted.is_(False)
+                ).update(
+                    {
+                        Statistics.is_deleted: True,
+                        Statistics.deleted_at: func.now()
+                    },
+                    synchronize_session=False
+                )
+
+                # Soft delete associated Assessments and Sections
+                self.db.query(Assessment).filter(
+                    Assessment.id_assessment.in_(assessment_ids_to_delete)
+                ).update(
+                    {
+                        Assessment.is_deleted: True,
+                        Assessment.deleted_at: func.now()
+                    },
+                    synchronize_session=False
+                )
+                self.db.query(Section).filter(
+                    Section.id_section.in_(section_ids_to_delete)
+                ).update(
+                    {
+                        Section.is_deleted: True,
+                        Section.deleted_at: func.now()
+                    },
+                    synchronize_session=False
+                )
+
+                # Soft delete associated CourseInSemester entries
+                self.db.query(CourseInSemester).filter(
+                    CourseInSemester.Semester_id_semester == semester_id,
+                    CourseInSemester.is_deleted.is_(False)
+                ).update(
+                    {
+                        CourseInSemester.is_deleted: True,
+                        CourseInSemester.deleted_at: func.now()
+                    },
+                    synchronize_session=False
+                )
+
+                # Soft delete the semester
+                db_semester.is_deleted = True
+                db_semester.deleted_at = func.now()
+                db_semester.active_semester_key = None
+
+                self.db.commit()
+                self.db.refresh(db_semester)
+            except Exception as e:
+                self.db.rollback()
+                raise e
         return db_semester

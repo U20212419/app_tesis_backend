@@ -38,10 +38,10 @@ class CourseInSemester(Base):
     )
 
     assessments: Mapped[List["Assessment"]] = relationship( # type: ignore
-        "Assessment", back_populates="course_in_semester", cascade="all, delete-orphan",
+        "Assessment", back_populates="course_in_semester",
         foreign_keys="[Assessment.id_semester, Assessment.id_course]"
     )
     sections: Mapped[List["Section"]] = relationship( # type: ignore
-        "Section", back_populates="course_in_semester", cascade="all, delete-orphan",
+        "Section", back_populates="course_in_semester",
         foreign_keys="[Section.id_semester, Section.id_course]"
     )
