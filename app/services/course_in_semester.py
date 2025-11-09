@@ -1,9 +1,19 @@
 """Service for handling course-in-semester-related operations."""
 
+import logging
 from fastapi import Depends
 from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import joinedload, Session
 from sqlalchemy.sql import func
+
+from app.exceptions import (
+    AppException,
+    CourseNotFoundException,
+    SemesterNotFoundException,
+    CourseInSemesterNotFoundException,
+    CourseAlreadyInSemesterException
+)
 
 from app.db import get_db
 from app.models.assessment import Assessment
@@ -12,6 +22,8 @@ from app.models.section import Section
 from app.models.semester import Semester
 from app.models.course_in_semester import CourseInSemester
 from app.models.statistics import Statistics
+
+logger = logging.getLogger(__name__)
 
 class CourseInSemesterService:
     """Service class for course in semester operations."""
@@ -172,7 +184,10 @@ class CourseInSemesterService:
         )
 
         if not result:
-            return None
+            logger.warning("CourseInSemester not found for "
+                           "course_id %s and semester_id %s for user %s.",
+                           course_id, semester_id, user_id)
+            raise CourseInSemesterNotFoundException()
 
         course_in_semester, assessment_count, section_count = result
         course_in_semester.assessment_count = assessment_count or 0
@@ -187,7 +202,9 @@ class CourseInSemesterService:
             Course.is_deleted.is_(False)
         ).first()
         if not course:
-            raise ValueError("Course does not belong to the user.")
+            logger.warning("Course not found for course_id %s and user_id %s.",
+                           course_id, user_id)
+            raise CourseNotFoundException()
 
         semester = self.db.query(Semester).filter(
             Semester.id_semester == semester_id,
@@ -195,7 +212,9 @@ class CourseInSemesterService:
             Semester.is_deleted.is_(False)
         ).first()
         if not semester:
-            raise ValueError("Semester does not belong to the user.")
+            logger.warning("Semester not found for semester_id %s and user_id %s.",
+                           semester_id, user_id)
+            raise SemesterNotFoundException()
 
         # Searches for an existing CourseInSemester entry
         db_course_in_semester = self.db.query(CourseInSemester).filter(
@@ -204,6 +223,11 @@ class CourseInSemesterService:
         ).first()
 
         if db_course_in_semester:
+            if db_course_in_semester.is_deleted is False:
+                logger.warning("Course with id %s is already in semester %s for user %s.",
+                               course_id, semester_id, user_id)
+                raise CourseAlreadyInSemesterException()
+
             # If it exists and is deleted, reactivate it
             db_course_in_semester.is_deleted = False
             db_course_in_semester.deleted_at = None
@@ -215,9 +239,17 @@ class CourseInSemesterService:
             )
             self.db.add(db_course_in_semester)
 
-        self.db.commit()
-        self.db.refresh(db_course_in_semester)
-        return db_course_in_semester
+        try:
+            self.db.commit()
+            self.db.refresh(db_course_in_semester)
+            logger.info("Course with id %s added to semester %s for user %s.",
+                        course_id, semester_id, user_id)
+            return db_course_in_semester
+        except IntegrityError as e:
+            self.db.rollback()
+            logger.error("Integrity error while adding course %s to semester %s for user %s: %s",
+                         course_id, semester_id, user_id, e, exc_info=True)
+            raise AppException() from e
 
     def remove_course_from_semester(self, semester_id: int, course_id: int,
                                     user_id: str):
@@ -225,71 +257,75 @@ class CourseInSemesterService:
         Its children entities are also soft deleted.
         """
         db_course_in_semester = self.get_course_in_semester(semester_id, course_id, user_id)
-        if db_course_in_semester:
-            try:
-                assessment_id_tuples = (
-                    self.db.query(Assessment.id_assessment)
-                    .filter(
-                        Assessment.id_semester == semester_id,
-                        Assessment.id_course == course_id,
-                        Assessment.is_deleted.is_(False)
-                    )
-                ).all()
 
-                assessment_ids_to_delete = [item[0] for item in assessment_id_tuples]
-
-                section_id_tuples = (
-                    self.db.query(Section.id_section)
-                    .filter(
-                        Section.id_semester == semester_id,
-                        Section.id_course == course_id,
-                        Section.is_deleted.is_(False)
-                    )
-                ).all()
-
-                section_ids_to_delete = [item[0] for item in section_id_tuples]
-
-                # Soft delete associated statistics via cascade from Assessments and Sections
-                self.db.query(Statistics).filter(
-                    or_(
-                        Statistics.id_assessment.in_(assessment_ids_to_delete),
-                        Statistics.id_section.in_(section_ids_to_delete)
-                    ),
-                    Statistics.is_deleted.is_(False)
-                ).update(
-                    {
-                        Statistics.is_deleted: True,
-                        Statistics.deleted_at: func.now()
-                    },
-                    synchronize_session=False
+        try:
+            assessment_id_tuples = (
+                self.db.query(Assessment.id_assessment)
+                .filter(
+                    Assessment.id_semester == semester_id,
+                    Assessment.id_course == course_id,
+                    Assessment.is_deleted.is_(False)
                 )
+            ).all()
 
-                # Soft delete associated Assessments and Sections
-                self.db.query(Assessment).filter(
-                    Assessment.id_assessment.in_(assessment_ids_to_delete)
-                ).update(
-                    {
-                        Assessment.is_deleted: True,
-                        Assessment.deleted_at: func.now()
-                    },
-                    synchronize_session=False
-                )
-                self.db.query(Section).filter(
-                    Section.id_section.in_(section_ids_to_delete)
-                ).update(
-                    {
-                        Section.is_deleted: True,
-                        Section.deleted_at: func.now()
-                    },
-                    synchronize_session=False
-                )
+            assessment_ids_to_delete = [item[0] for item in assessment_id_tuples]
 
-                # Soft delete the CourseInSemester entry
-                db_course_in_semester.is_deleted = True
-                db_course_in_semester.deleted_at = func.now()
-                self.db.commit()
-                self.db.refresh(db_course_in_semester)
-            except Exception as e:
-                self.db.rollback()
-                raise e
-        return db_course_in_semester
+            section_id_tuples = (
+                self.db.query(Section.id_section)
+                .filter(
+                    Section.id_semester == semester_id,
+                    Section.id_course == course_id,
+                    Section.is_deleted.is_(False)
+                )
+            ).all()
+
+            section_ids_to_delete = [item[0] for item in section_id_tuples]
+
+            # Soft delete associated statistics via cascade from Assessments and Sections
+            self.db.query(Statistics).filter(
+                or_(
+                    Statistics.id_assessment.in_(assessment_ids_to_delete),
+                    Statistics.id_section.in_(section_ids_to_delete)
+                ),
+                Statistics.is_deleted.is_(False)
+            ).update(
+                {
+                    Statistics.is_deleted: True,
+                    Statistics.deleted_at: func.now()
+                },
+                synchronize_session=False
+            )
+
+            # Soft delete associated Assessments and Sections
+            self.db.query(Assessment).filter(
+                Assessment.id_assessment.in_(assessment_ids_to_delete)
+            ).update(
+                {
+                    Assessment.is_deleted: True,
+                    Assessment.deleted_at: func.now()
+                },
+                synchronize_session=False
+            )
+            self.db.query(Section).filter(
+                Section.id_section.in_(section_ids_to_delete)
+            ).update(
+                {
+                    Section.is_deleted: True,
+                    Section.deleted_at: func.now()
+                },
+                synchronize_session=False
+            )
+
+            # Soft delete the CourseInSemester entry
+            db_course_in_semester.is_deleted = True
+            db_course_in_semester.deleted_at = func.now()
+            self.db.commit()
+            self.db.refresh(db_course_in_semester)
+            logger.info("Course with id %s removed from semester %s for user %s.",
+                        course_id, semester_id, user_id)
+            return db_course_in_semester
+        except SQLAlchemyError as e:
+            self.db.rollback()
+            logger.error("Error while removing course %s from semester %s for user %s: %s",
+                         course_id, semester_id, user_id, e, exc_info=True)
+            raise AppException() from e

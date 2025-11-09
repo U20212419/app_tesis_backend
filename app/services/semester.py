@@ -1,9 +1,17 @@
 """Service for handling semester-related operations."""
 
+import logging
 from fastapi import Depends
 from sqlalchemy import and_, or_
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
+
+from app.exceptions import (
+    AppException,
+    SemesterNotFoundException,
+    SemesterKeyDuplicateException
+)
 
 from app.db import get_db
 from app.models.assessment import Assessment
@@ -12,6 +20,8 @@ from app.models.section import Section
 from app.models.semester import Semester
 from app.models.statistics import Statistics
 from app.schemas.semester import SemesterCreate
+
+logger = logging.getLogger(__name__)
 
 class SemesterService:
     """Service class for semester operations."""
@@ -28,11 +38,17 @@ class SemesterService:
 
     def get_semester(self, semester_id: int, user_id: str):
         """Retrieve a specific semester by its ID, only if it belongs to the user."""
-        return self.db.query(Semester).filter(
+        db_semester = self.db.query(Semester).filter(
                 Semester.id_semester == semester_id,
                 Semester.id_user == user_id,
                 Semester.is_deleted.is_(False)
             ).first()
+
+        if not db_semester:
+            logger.warning("Semester with id %s not found for user %s.",
+                           semester_id, user_id)
+            raise SemesterNotFoundException()
+        return db_semester
 
     def create_semester(self, semester: SemesterCreate, user_id: str):
         """Create a new semester in the database."""
@@ -43,11 +59,25 @@ class SemesterService:
             id_user=user_id,
             active_semester_key=semester_key
         )
-        self.db.add(db_semester)
-        self.db.commit()
-        self.db.refresh(db_semester)
-        db_semester.courses_count = 0
-        return db_semester
+
+        try:
+            self.db.add(db_semester)
+            self.db.commit()
+            self.db.refresh(db_semester)
+            db_semester.courses_count = 0
+            return db_semester
+        except IntegrityError as e:
+            self.db.rollback()
+            error_info = str(e.orig).lower()
+
+            if "duplicate entry" in error_info and "active_semester_key" in error_info:
+                logger.warning("Duplicate semester key '%s' for user %s.",
+                               semester_key, user_id)
+                raise SemesterKeyDuplicateException() from e
+
+            logger.error("Integrity error while creating semester for user %s: %s",
+                         user_id, e, exc_info=True)
+            raise AppException() from e
 
     def get_all_semesters_detailed(self, user_id: str):
         """Retrieve all semesters for a specific user,
@@ -81,16 +111,31 @@ class SemesterService:
     def update_semester(self, semester_id: int, user_id: str, updated_semester: SemesterCreate):
         """Update an existing semester in the database."""
         db_semester = self.get_semester(semester_id, user_id)
-        if db_semester:
-            update_data = updated_semester.model_dump()
-            for key, value in updated_semester.model_dump().items():
-                setattr(db_semester, key, value)
-            if 'year' in update_data or 'number' in update_data:
-                semester_key = f"{db_semester.year}-{db_semester.number}"
-                db_semester.active_semester_key = semester_key
+        update_data = updated_semester.model_dump()
+        for key, value in updated_semester.model_dump().items():
+            setattr(db_semester, key, value)
+        if 'year' in update_data or 'number' in update_data:
+            semester_key = f"{db_semester.year}-{db_semester.number}"
+            db_semester.active_semester_key = semester_key
+
+        try:
             self.db.commit()
             self.db.refresh(db_semester)
-        return db_semester
+            logger.info("Semester with id %s updated for user %s.",
+                        semester_id, user_id)
+            return db_semester
+        except IntegrityError as e:
+            self.db.rollback()
+            error_info = str(e.orig).lower()
+
+            if "duplicate entry" in error_info and "active_semester_key" in error_info:
+                logger.warning("Duplicate semester key '%s' for user %s when updating.",
+                               db_semester.active_semester_key, user_id)
+                raise SemesterKeyDuplicateException() from e
+
+            logger.error("Integrity error while updating semester %s for user %s: %s",
+                         semester_id, user_id, e, exc_info=True)
+            raise AppException() from e
 
     def delete_semester(self, semester_id: int, user_id: str):
         """Soft delete a semester from the database."""
@@ -171,7 +216,11 @@ class SemesterService:
 
                 self.db.commit()
                 self.db.refresh(db_semester)
-            except Exception as e:
+                logger.info("Semester with id %s soft deleted for user %s.",
+                            semester_id, user_id)
+                return db_semester
+            except SQLAlchemyError as e:
                 self.db.rollback()
-                raise e
-        return db_semester
+                logger.error("Error occurred while soft deleting semester %s for user %s: %s",
+                             semester_id, user_id, e)
+                raise AppException() from e

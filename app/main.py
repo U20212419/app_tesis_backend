@@ -3,6 +3,7 @@
 import os
 from fastapi import FastAPI
 from dotenv import load_dotenv
+from app.logging_config import setup_logging
 from app.routes import (test,
                         semester,
                         course,
@@ -16,6 +17,8 @@ if env == "production":
     load_dotenv(".env.production")
 else:
     load_dotenv(".env.development")
+
+setup_logging()
 
 app = FastAPI(
     title="Backend",
