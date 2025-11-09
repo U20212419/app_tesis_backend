@@ -1,6 +1,6 @@
 """Routes for managing courses in a semester."""
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Response, status
 
 from app.auth.auth_utils import get_current_user_id
 from app.schemas.course_in_semester import CourseInSemesterRead
@@ -58,14 +58,11 @@ def read_course_in_semester(semester_id: int, course_id: int,
     Raises:
         HTTPException: If the course in semester is not found.
     """
-    db_course_in_semester = course_in_semester_service.get_course_in_semester(
+    return course_in_semester_service.get_course_in_semester(
         semester_id,
         course_id,
         user_id
     )
-    if not db_course_in_semester:
-        raise HTTPException(status_code=404, detail="Course not found in the semester.")
-    return db_course_in_semester
 
 @router.post("/{semester_id}/{course_id}", response_model=CourseInSemesterRead)
 def add_course_to_semester(semester_id: int, course_id: int,
@@ -103,11 +100,9 @@ def remove_course_from_semester(semester_id: int, course_id: int,
     Raises:
         HTTPException: If the course is not found in the semester.
     """
-    db_course_in_semester = course_in_semester_service.remove_course_from_semester(
+    course_in_semester_service.remove_course_from_semester(
         semester_id,
         course_id,
         user_id
     )
-    if not db_course_in_semester:
-        raise HTTPException(status_code=404, detail="Course not found in the semester.")
     return Response(status_code=status.HTTP_204_NO_CONTENT)

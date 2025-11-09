@@ -69,9 +69,9 @@ class CourseService:
             return db_course
         except IntegrityError as e:
             self.db.rollback()
-            error_info = str(e.orig).lower()
+            db_error_code = e.orig.args[0] if e.orig and hasattr(e.orig, 'args') else 0
 
-            if "duplicate entry" in error_info and "active_code" in error_info:
+            if db_error_code == 1062:  # MySQL duplicate entry error code
                 logger.warning("Duplicate course code '%s' for user %s when creating.",
                                course_data['code'], user_id)
                 raise CourseCodeDuplicateException() from e
@@ -127,9 +127,9 @@ class CourseService:
             return db_course
         except IntegrityError as e:
             self.db.rollback()
-            error_info = str(e.orig).lower()
+            db_error_code = e.orig.args[0] if e.orig and hasattr(e.orig, 'args') else 0
 
-            if "duplicate entry" in error_info and "active_code" in error_info:
+            if db_error_code == 1062:  # MySQL duplicate entry error code
                 logger.warning("Duplicate course code '%s' for user %s when updating.",
                                update_data['code'], user_id)
                 raise CourseCodeDuplicateException() from e

@@ -1,6 +1,6 @@
 """Routes for managing semesters."""
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Response, status
 
 from app.auth.auth_utils import get_current_user_id
 from app.schemas.semester import SemesterCreate, SemesterRead
@@ -68,10 +68,7 @@ def read_semester(semester_id: int, semester_service: SemesterService = Depends(
     Raises:
         HTTPException: If the semester is not found.
     """
-    db_semester = semester_service.get_semester(semester_id, user_id)
-    if not db_semester:
-        raise HTTPException(status_code=404, detail="Semester not found.")
-    return db_semester
+    return semester_service.get_semester(semester_id, user_id)
 
 @router.put("/{semester_id}", response_model=SemesterRead)
 def update_semester(semester_id: int, updated_semester: SemesterCreate,
@@ -91,10 +88,7 @@ def update_semester(semester_id: int, updated_semester: SemesterCreate,
     Raises:
         HTTPException: If the semester is not found.
     """
-    db_semester = semester_service.update_semester(semester_id, user_id, updated_semester)
-    if not db_semester:
-        raise HTTPException(status_code=404, detail="Semester not found.")
-    return db_semester
+    return semester_service.update_semester(semester_id, user_id, updated_semester)
 
 @router.delete("/{semester_id}", response_model=SemesterRead)
 def delete_semester(semester_id: int, semester_service: SemesterService = Depends(),
@@ -112,7 +106,5 @@ def delete_semester(semester_id: int, semester_service: SemesterService = Depend
     Raises:
         HTTPException: If the semester is not found.
     """
-    db_semester = semester_service.delete_semester(semester_id, user_id)
-    if not db_semester:
-        raise HTTPException(status_code=404, detail="Semester not found.")
+    semester_service.delete_semester(semester_id, user_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -1,6 +1,6 @@
 """Routes for managing courses."""
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Response, status
 
 from app.auth.auth_utils import get_current_user_id
 from app.schemas.course import CourseCreate, CourseRead
@@ -68,10 +68,7 @@ def read_course(course_id: int, course_service: CourseService = Depends(),
     Raises:
         HTTPException: If the course is not found.
     """
-    db_course = course_service.get_course(course_id, user_id)
-    if not db_course:
-        raise HTTPException(status_code=404, detail="Course not found.")
-    return db_course
+    return course_service.get_course(course_id, user_id)
 
 @router.put("/{course_id}", response_model=CourseRead)
 def update_course(course_id: int, updated_course: CourseCreate,
@@ -91,10 +88,7 @@ def update_course(course_id: int, updated_course: CourseCreate,
     Raises:
         HTTPException: If the course is not found.
     """
-    db_course = course_service.update_course(course_id, user_id, updated_course)
-    if not db_course:
-        raise HTTPException(status_code=404, detail="Course not found.")
-    return db_course
+    return course_service.update_course(course_id, user_id, updated_course)
 
 @router.delete("/{course_id}", response_model=CourseRead)
 def delete_course(course_id: int, course_service: CourseService = Depends(),
@@ -112,7 +106,5 @@ def delete_course(course_id: int, course_service: CourseService = Depends(),
     Raises:
         HTTPException: If the course is not found.
     """
-    db_course = course_service.delete_course(course_id, user_id)
-    if not db_course:
-        raise HTTPException(status_code=404, detail="Course not found.")
+    course_service.delete_course(course_id, user_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

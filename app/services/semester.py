@@ -68,9 +68,9 @@ class SemesterService:
             return db_semester
         except IntegrityError as e:
             self.db.rollback()
-            error_info = str(e.orig).lower()
+            db_error_code = e.orig.args[0] if e.orig and hasattr(e.orig, 'args') else 0
 
-            if "duplicate entry" in error_info and "active_semester_key" in error_info:
+            if db_error_code == 1062:  # MySQL duplicate entry error code
                 logger.warning("Duplicate semester key '%s' for user %s.",
                                semester_key, user_id)
                 raise SemesterKeyDuplicateException() from e
@@ -126,9 +126,9 @@ class SemesterService:
             return db_semester
         except IntegrityError as e:
             self.db.rollback()
-            error_info = str(e.orig).lower()
+            db_error_code = e.orig.args[0] if e.orig and hasattr(e.orig, 'args') else 0
 
-            if "duplicate entry" in error_info and "active_semester_key" in error_info:
+            if db_error_code == 1062:  # MySQL duplicate entry error code
                 logger.warning("Duplicate semester key '%s' for user %s when updating.",
                                db_semester.active_semester_key, user_id)
                 raise SemesterKeyDuplicateException() from e
