@@ -37,10 +37,16 @@ def get_current_user_id(token: HTTPAuthorizationCredentials = Depends(security))
         str: The user ID extracted from the token.
 
     Raises:
-        HTTPException: If the token is invalid or verification fails.
+        ExpiredTokenException: If the token has expired.
+        RevokedTokenException: If the token has been revoked.
+        InvalidTokenException: If the token is invalid.
+        AppException: For any other unexpected errors during token verification.
     """
     try:
-        decoded_token = auth.verify_id_token(token.credentials)
+        decoded_token = auth.verify_id_token(
+            token.credentials,
+            clock_skew_seconds=60  # Allow 1 minute clock skew for token validation
+        )
         return decoded_token["uid"]
     except auth.ExpiredIdTokenError as e:
         logger.warning("Attempted access with an expired token: %s", e)
