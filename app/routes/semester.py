@@ -64,9 +64,6 @@ def read_semester(semester_id: int, semester_service: SemesterService = Depends(
         
     Returns:
         SemesterRead: The requested semester.
-        
-    Raises:
-        HTTPException: If the semester is not found.
     """
     return semester_service.get_semester(semester_id, user_id)
 
@@ -84,9 +81,6 @@ def update_semester(semester_id: int, updated_semester: SemesterCreate,
         
     Returns:
         SemesterRead: The updated semester.
-    
-    Raises:
-        HTTPException: If the semester is not found.
     """
     return semester_service.update_semester(semester_id, user_id, updated_semester)
 
@@ -102,9 +96,6 @@ def delete_semester(semester_id: int, semester_service: SemesterService = Depend
         
     Returns:
         Response: HTTP 204 No Content response.
-    
-    Raises:
-        HTTPException: If the semester is not found.
     """
     semester_service.delete_semester(semester_id, user_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

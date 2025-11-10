@@ -64,9 +64,6 @@ def read_course(course_id: int, course_service: CourseService = Depends(),
         
     Returns:
         CourseRead: The requested course.
-    
-    Raises:
-        HTTPException: If the course is not found.
     """
     return course_service.get_course(course_id, user_id)
 
@@ -84,9 +81,6 @@ def update_course(course_id: int, updated_course: CourseCreate,
         
     Returns:
         CourseRead: The updated course.
-    
-    Raises:
-        HTTPException: If the course is not found.
     """
     return course_service.update_course(course_id, user_id, updated_course)
 
@@ -102,9 +96,6 @@ def delete_course(course_id: int, course_service: CourseService = Depends(),
 
     Returns:
         Response: HTTP 204 No Content response.
-        
-    Raises:
-        HTTPException: If the course is not found.
     """
     course_service.delete_course(course_id, user_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -61,6 +61,11 @@ class AssessmentNotFoundException(ResourceNotFoundException):
     code: str = "ERR_ASSESSMENT_NOT_FOUND"
     message: str = "La evaluación solicitada no fue encontrada."
 
+class SectionNotFoundException(ResourceNotFoundException):
+    """Exception raised when a requested section is not found."""
+    code: str = "ERR_SECTION_NOT_FOUND"
+    message: str = "El horario solicitado no fue encontrado."
+
 class DuplicateResourceException(AppException):
     """Exception raised when attempting to create a duplicate resource."""
     status_code: int = 409

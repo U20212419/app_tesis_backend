@@ -13,6 +13,12 @@ class AssessmentBase(BaseModel):
 class AssessmentCreate(AssessmentBase):
     """Schema for creating a Assessment."""
 
+class AssessmentUpdate(BaseModel):
+    """Schema for updating a Assessment."""
+    type: str
+    number: int
+    question_amount: int | None = None
+
 class AssessmentRead(AssessmentBase):
     """Schema for reading a Assessment."""
     id_assessment: int

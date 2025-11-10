@@ -11,6 +11,10 @@ class SectionBase(BaseModel):
 class SectionCreate(SectionBase):
     """Schema for creating a Section."""
 
+class SectionUpdate(BaseModel):
+    """Schema for updating a Section."""
+    name: str
+
 class SectionRead(SectionBase):
     """Schema for reading a Section."""
     id_section: int

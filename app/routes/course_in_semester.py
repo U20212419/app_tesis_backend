@@ -54,9 +54,6 @@ def read_course_in_semester(semester_id: int, course_id: int,
         
     Returns:
         CourseInSemesterRead: The requested course in semester.
-        
-    Raises:
-        HTTPException: If the course in semester is not found.
     """
     return course_in_semester_service.get_course_in_semester(
         semester_id,
@@ -96,9 +93,6 @@ def remove_course_from_semester(semester_id: int, course_id: int,
 
     Returns:
         Response: HTTP 204 No Content response.
-
-    Raises:
-        HTTPException: If the course is not found in the semester.
     """
     course_in_semester_service.remove_course_from_semester(
         semester_id,
