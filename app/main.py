@@ -14,7 +14,8 @@ from app.routes import (test,
                         course_in_semester,
                         section,
                         assessment,
-                        statistics)
+                        statistics,
+                        video_processing)
 
 # Load environment variables from .env file
 env = os.getenv("ENV", "development")
@@ -62,10 +63,13 @@ async def generic_exception_handler(_request: Request, exc: Exception):
     )
 
 # Register routes
-app.include_router(test.router)
-app.include_router(semester.router)
-app.include_router(course.router)
-app.include_router(course_in_semester.router)
-app.include_router(section.router)
-app.include_router(assessment.router)
-app.include_router(statistics.router)
+API_PREFIX = "/api/v1"
+
+app.include_router(test.router, prefix=API_PREFIX)
+app.include_router(semester.router, prefix=API_PREFIX)
+app.include_router(course.router, prefix=API_PREFIX)
+app.include_router(course_in_semester.router, prefix=API_PREFIX)
+app.include_router(section.router, prefix=API_PREFIX)
+app.include_router(assessment.router, prefix=API_PREFIX)
+app.include_router(statistics.router, prefix=API_PREFIX)
+app.include_router(video_processing.router, prefix=API_PREFIX)

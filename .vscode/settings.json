@@ -2,5 +2,5 @@
     "pylint.args": [
         "--rcfile=.pylintrc"
     ],
-    "pylint.importStrategy": "fromEnvironment"
+    "pylint.importStrategy": "fromEnvironment",
 }

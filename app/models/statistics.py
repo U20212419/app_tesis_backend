@@ -1,8 +1,8 @@
 """Model definition for Statistics table."""
 
 from datetime import datetime
-from typing import Optional
-from sqlalchemy import Boolean, JSON, ForeignKey, Integer, TIMESTAMP
+from typing import Any, Dict, Optional
+from sqlalchemy import Boolean, JSON, ForeignKey, Integer, TIMESTAMP, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -18,7 +18,7 @@ class Statistics(Base):
     id_assessment: Mapped[int] = mapped_column(
         Integer, ForeignKey("Assessment.id_assessment"), primary_key=True
     )
-    stats: Mapped[dict] = mapped_column(JSON, nullable=False)
+    stats: Mapped[Dict[str, Any]] = mapped_column(JSON, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True),
                                                  server_default=func.now(),
@@ -30,6 +30,8 @@ class Statistics(Base):
     deleted_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
 
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
+
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
 
     section: Mapped["Section"] = relationship( # type: ignore
         "Section", back_populates="statistics"
