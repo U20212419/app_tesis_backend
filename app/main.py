@@ -20,9 +20,9 @@ from app.routes import (test,
 # Load environment variables from .env file
 env = os.getenv("ENV", "development")
 if env == "production":
-    load_dotenv(".env.production")
+    load_dotenv(".env.production", override=True)
 else:
-    load_dotenv(".env.development")
+    load_dotenv(".env.development", override=True)
 
 setup_logging()
 
