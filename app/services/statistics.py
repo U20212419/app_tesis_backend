@@ -13,7 +13,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 
 from app.db import get_db
-from app.exceptions import AppException, ResourceNotFoundException
+from app.exceptions import (
+    AppException,
+    QuestionAmountMissingException,
+    ResourceNotFoundException,
+    StatisticsNotFoundException
+)
 from app.models.assessment import Assessment
 from app.models.course import Course
 from app.models.course_in_semester import CourseInSemester
@@ -33,7 +38,6 @@ class StatisticsService:
             access_key = os.getenv("AWS_ACCESS_KEY_ID")
             secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
             region = os.getenv("AWS_REGION")
-            logger.info("region: %s", region)
 
             if access_key and secret_key and region:
                 self.s3_client = boto3.client(
@@ -163,7 +167,10 @@ class StatisticsService:
                 ) from e
             logger.error("Error downloading S3 object s3://%s/%s: %s",
                          bucket_name, object_key, e, exc_info=True)
-            raise AppException(message="Failed to download file from S3.") from e
+            raise AppException(
+                message="Failed to download file from S3.",
+                code="ERR_FAILED_DOWNLOAD_S3"
+            ) from e
 
     def _cleanup_file(self, file_path: str, s3_url: str):
         """Remove a temporary file and the original S3 object."""
@@ -306,7 +313,7 @@ class StatisticsService:
                 new_stats = Statistics(
                     id_assessment=assessment_id,
                     id_section=section_id,
-                    stats=stats_data,
+                    stats=stats_data or {},
                     status=status
                 )
                 self.db.add(new_stats)
@@ -334,9 +341,7 @@ class StatisticsService:
         question_amount = assessment.question_amount
         if not question_amount:
             logger.error("Assessment id=%d has no question_amount set.", assessment_id)
-            raise AppException(
-                message="Assessment has no question amount set."
-            )
+            raise QuestionAmountMissingException()
 
         if updated_statistics.scores is not None:
             new_stats_dict = video_pipeline.calculate_statistics(
@@ -391,9 +396,7 @@ class StatisticsService:
             logger.warning("Statistics not found for "
                            "assessment_id=%d, section_id=%d, user_id=%s",
                            assessment_id, section_id, user_id)
-            raise ResourceNotFoundException(
-                message="Statistics not found for the specified assessment and section."
-            )
+            raise StatisticsNotFoundException()
         return stats
 
     def delete_statistics(self, assessment_id: int, section_id: int, user_id: str):
@@ -409,9 +412,7 @@ class StatisticsService:
             logger.warning("Statistics not found for deletion for "
                            "assessment_id=%d, section_id=%d, user_id=%s",
                            assessment_id, section_id, user_id)
-            raise ResourceNotFoundException(
-                message="Statistics not found for the specified assessment and section."
-            )
+            raise StatisticsNotFoundException()
 
         try:
             stats.is_deleted = True

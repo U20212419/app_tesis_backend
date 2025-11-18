@@ -66,6 +66,11 @@ class SectionNotFoundException(ResourceNotFoundException):
     code: str = "ERR_SECTION_NOT_FOUND"
     message: str = "El horario solicitado no fue encontrado."
 
+class StatisticsNotFoundException(ResourceNotFoundException):
+    """Exception raised when requested statistics are not found."""
+    code: str = "ERR_STATISTICS_NOT_FOUND"
+    message: str = "No hay estadísticas disponibles para la evaluación y horario seleccionados."
+
 class DuplicateResourceException(AppException):
     """Exception raised when attempting to create a duplicate resource."""
     status_code: int = 409
@@ -86,3 +91,8 @@ class CourseAlreadyInSemesterException(DuplicateResourceException):
     """Exception raised when attempting to add a course that is already in the semester."""
     code: str = "ERR_COURSE_ALREADY_IN_SEMESTER"
     message: str = "El curso ya ha sido añadido al semestre seleccionado."
+
+class QuestionAmountMissingException(AppException):
+    """Exception raised when the question amount for an assessment is missing."""
+    code: str = "ERR_QUESTION_AMOUNT_MISSING"
+    message: str = "La cantidad de preguntas para la evaluación no está establecida."
