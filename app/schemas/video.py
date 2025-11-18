@@ -1,5 +1,6 @@
 """Schemas for video processing."""
 
+from typing import List, Optional
 from pydantic import BaseModel
 
 class GenerateUploadUrlRequest(BaseModel):
@@ -17,3 +18,4 @@ class VideoProcessRequest(BaseModel):
     id_assessment: int
     id_section: int
     question_amount: int
+    frames_indexes: Optional[List[int]] = None

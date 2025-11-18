@@ -50,7 +50,8 @@ def trigger_video_processing(request: VideoProcessRequest,
         question_amount=request.question_amount,
         assessment_id=request.id_assessment,
         section_id=request.id_section,
-        user_id=user_id
+        user_id=user_id,
+        frames_indexes=request.frames_indexes
     )
 
     return {"message": "Video processing has been started."}

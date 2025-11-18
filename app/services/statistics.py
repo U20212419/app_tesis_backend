@@ -239,7 +239,8 @@ class StatisticsService:
         return assessment_section
 
     def process_and_save_video(self, s3_url: str, question_amount: int,
-                               assessment_id: int, section_id: int, user_id: str):
+                               assessment_id: int, section_id: int,
+                               user_id: str, frames_indexes: Optional[List[int]] = None):
         """Process the video from S3 and save statistics to the database."""
         # Fetch assessment and section to validate existence and ownership
         self._get_validated_assessment_and_section(
@@ -258,7 +259,8 @@ class StatisticsService:
                         assessment_id, section_id, user_id)
             json_scores = video_pipeline.process_video(
                 video_path=video_path,
-                question_amount=question_amount
+                question_amount=question_amount,
+                frames_indexes=frames_indexes
             )
             logger.info("Pipeline processing completed for "
                         "assessment_id=%d, section_id=%d, user_id=%s",

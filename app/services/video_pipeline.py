@@ -2,6 +2,7 @@
 import json
 import math
 from pathlib import Path
+from typing import List, Optional
 
 import cv2
 import numpy as np
@@ -568,7 +569,8 @@ def calculate_statistics(all_booklet_scores: list, question_amount: int) -> dict
 
     return stats_dict
 
-def process_video(video_path: str, stride=10, iou_threshold=0.5, question_amount=8):
+def process_video(video_path: str, stride=10, iou_threshold=0.5,
+                  question_amount=8, frames_indexes: Optional[List[int]] = None):
     """Process a video to extract relevant frames, detect bounding boxes,
     and classify digits using pre-loaded machine learning models.
     
@@ -576,6 +578,11 @@ def process_video(video_path: str, stride=10, iou_threshold=0.5, question_amount
         video_path (str): Path to the video file.
         stride (int): Process every N frames.
         iou_threshold (float): IoU threshold for NMS.
+        question_amount (int): Number of questions in the assessment.
+        frames_indexes (List[int], optional): Specific frame indexes to process.
+    
+    Returns:
+        dict: Extracted scores and statistics.
     """
     #start_time = cv2.getTickCount()
 
@@ -598,55 +605,94 @@ def process_video(video_path: str, stride=10, iou_threshold=0.5, question_amount
     # Filter and crop relevant frames
     # --------------------------------
 
-    # Preprocessing for frame relevance model
-    preprocess = transforms.Compose([
-        transforms.ToPILImage(),
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406],
-                             [0.229, 0.224, 0.225]) # ImageNet stats
-    ])
-
     # Read video frames
     frames_to_process = []
-    frame_idx = 0
-    relevant_buffer = []
-    while True:
-        # Read next frame from video
-        ret = cap.grab()
+    if frames_indexes is not None and len(frames_indexes) > 0:
+        # Get FPS to calculate frame time
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        if fps == 0 or fps is None:
+            fps = 30  # Default to 30 if FPS cannot be determined
 
-        if not ret:
-            # Finish processing remaining relevant frames
-            best_frame = select_best_frame(relevant_buffer)
-            if best_frame is not None:
-                crop = crop_score_table(best_frame)
-                if crop is not None:
-                    frames_to_process.append(crop)
-            break
+        # Convert timestamps in milliseconds to frame indexes
+        target_frame_indexes = set()
+        for timestamp_ms in frames_indexes:
+            frame_idx = int((timestamp_ms / 1000.0) * fps)
+            target_frame_indexes.add(frame_idx)
 
-        if frame_idx % stride == 0:
-            # Decode the frame (one out of every 'stride' frames)
-            ret, frame = cap.retrieve()
+        # Iterate through video and extract specified frames
+        frame_idx_counter = 0
+        while True:
+            ret = cap.grab()
             if not ret:
                 break
-            frame_tensor = preprocess(frame).unsqueeze(0).to(device)  # type: ignore
-            with torch.no_grad():
-                relevance = frames_model(frame_tensor)  # Shape [1, num_classes]
-                pred_class = relevance.argmax(dim=1).item()  # Predicted class as scalar
-            if pred_class == 1:  # Relevant frame
-                relevant_buffer.append(frame)
-            else:
-                # If the relevant frame sequence ends, select the best frame
+
+            # Check if current frame index is in target indexes
+            if frame_idx_counter in target_frame_indexes:
+                ret, frame = cap.retrieve()
+                if ret:
+                    crop = crop_score_table(frame)
+                    if crop is not None:
+                        frames_to_process.append(crop)
+
+                # Remove processed index to speed up future checks
+                target_frame_indexes.remove(frame_idx_counter)
+
+                # Break early if all target frames have been processed
+                if not target_frame_indexes:
+                    break
+
+            frame_idx_counter += 1
+    else:
+        # Preprocessing for frame relevance model
+        preprocess = transforms.Compose([
+            transforms.ToPILImage(),
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406],
+                                [0.229, 0.224, 0.225]) # ImageNet stats
+        ])
+
+        frame_idx = 0
+        relevant_buffer = []
+        while True:
+            # Read next frame from video
+            ret = cap.grab()
+
+            if not ret:
+                # Finish processing remaining relevant frames
                 best_frame = select_best_frame(relevant_buffer)
                 if best_frame is not None:
                     crop = crop_score_table(best_frame)
                     if crop is not None:
                         frames_to_process.append(crop)
-                relevant_buffer = []
+                break
 
-        frame_idx += 1
+            if frame_idx % stride == 0:
+                # Decode the frame (one out of every 'stride' frames)
+                ret, frame = cap.retrieve()
+                if not ret:
+                    break
+                frame_tensor = preprocess(frame).unsqueeze(0).to(device)  # type: ignore
+                with torch.no_grad():
+                    relevance = frames_model(frame_tensor)  # Shape [1, num_classes]
+                    pred_class = relevance.argmax(dim=1).item()  # Predicted class as scalar
+                if pred_class == 1:  # Relevant frame
+                    relevant_buffer.append(frame)
+                else:
+                    # If the relevant frame sequence ends, select the best frame
+                    best_frame = select_best_frame(relevant_buffer)
+                    if best_frame is not None:
+                        crop = crop_score_table(best_frame)
+                        if crop is not None:
+                            frames_to_process.append(crop)
+                    relevant_buffer = []
+
+            frame_idx += 1
 
     cap.release()
+
+    if not frames_to_process:
+        return {"scores": [], "statistics": calculate_statistics([], question_amount)}
 
     # -----------------------------------------------------
     # Detect bounding boxes on ROI for each selected frame
@@ -771,7 +817,7 @@ def process_video(video_path: str, stride=10, iou_threshold=0.5, question_amount
 
     final_output = {
         "scores": all_booklet_scores,
-        "stats": stats_dict
+        "statistics": stats_dict
     }
 
     #end_time = cv2.getTickCount()
