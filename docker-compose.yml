@@ -3,8 +3,8 @@ services:
     build: .
     container_name: app_thesis_20212419
     restart: always  # Restart the container automatically if it stops
-    ports:
-      - "8000:8000"  # Map port 8000 of the host to port 8000 of the container
+    expose:
+      - "8000"  # Expose port 8000 of the container
     env_file:
       - .env.production  # Load environment variables from .env.production file
     volumes:
@@ -12,3 +12,19 @@ services:
       - ./secrets:/app/secrets:ro  # Mount host directory ./secrets to /app/secrets in the container as read-only
     environment:
       - ENV=production
+  caddy:
+    image: caddy:latest
+    container_name: caddy_thesis_20212419
+    restart: always  # Restart the container automatically if it stops
+    ports:
+      - "80:80"  # Map host port 80 to container port 80
+      - "443:443"  # Map host port 443 to container port 443
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile  # Mount host Caddyfile to container Caddyfile
+      - caddy_data:/data  # Named volume for Caddy data
+      - caddy_config:/config  # Named volume for Caddy config
+    depends_on:
+      - api  # Ensure the api service starts before caddy
+volumes:
+  caddy_data:
+  caddy_config:
