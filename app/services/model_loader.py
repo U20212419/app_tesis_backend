@@ -1,8 +1,11 @@
 """Service to load and cache machine learning models."""
 from functools import lru_cache
+import logging
 import os
 from pathlib import Path
 import torch
+
+logger = logging.getLogger(__name__)
 
 @lru_cache()
 def load_models():
@@ -11,10 +14,18 @@ def load_models():
 
     ml_models_dir = Path(os.path.expanduser("app/ml_models")).resolve()
 
+    # Load YOLO cpu model if device is cpu
+    if device == "cpu":
+        yolo_model_name = "digits_yolo_cpu.pt"
+        logger.info("Using CPU YOLO model: %s.", yolo_model_name)
+    else:
+        yolo_model_name = "digits_yolo.pt"
+        logger.info("Using GPU YOLO model: %s.", yolo_model_name)
+
     models = {
         "frames": torch.jit.load(ml_models_dir / "relevant_frames_resnet.pt",
                                  map_location=device).to(device).eval(),
-        "recognizer": torch.jit.load(ml_models_dir / "digits_yolo.pt",
+        "recognizer": torch.jit.load(ml_models_dir / yolo_model_name,
                                      map_location=device).to(device).eval(),
         "classifier": torch.jit.load(ml_models_dir / "digits_resnet.pt",
                                      map_location=device).to(device).eval(),
