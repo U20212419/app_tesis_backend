@@ -1,0 +1,11 @@
+venv/
+.venv/
+.vscode/
+.idea/
+.git/
+__pycache__/
+*.pyc
+logs/
+secrets/
+.env*
+db/

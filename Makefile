@@ -59,3 +59,35 @@ help:
 	@echo "  make venv     # Create virtual environment"
 	@echo "  make clean    # Clean Python cache"
 	@echo "  make help     # Show this help"
+
+# ----------------------
+# Docker Targets
+# ----------------------
+
+# Build Docker image
+docker-build:
+	@echo "Building Docker image..."
+	docker-compose build
+
+# Run Docker container
+docker-run:
+	@echo "Running Docker container..."
+	docker-compose up -d
+
+# Stop Docker container
+docker-down:
+	@echo "Stopping Docker container..."
+	docker-compose down
+
+# View Docker logs
+docker-logs:
+	@echo "Viewing Docker logs..."
+	docker-compose logs -f
+
+# Show Docker help
+docker-help:
+	@echo "Docker commands:"
+	@echo "  make docker-build   # Build Docker image"
+	@echo "  make docker-run     # Run Docker container"
+	@echo "  make docker-down    # Stop Docker container"
+	@echo "  make docker-logs    # View Docker logs"

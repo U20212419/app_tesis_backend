@@ -1,0 +1,14 @@
+services:
+  api:
+    build: .
+    container_name: app_thesis_20212419
+    restart: always  # Restart the container automatically if it stops
+    ports:
+      - "8000:8000"  # Map port 8000 of the host to port 8000 of the container
+    env_file:
+      - .env.production  # Load environment variables from .env.production file
+    volumes:
+      - ./logs:/app/logs  # Mount host directory ./logs to /app/logs in the container
+      - ./secrets:/app/secrets:ro  # Mount host directory ./secrets to /app/secrets in the container as read-only
+    environment:
+      - ENV=production
