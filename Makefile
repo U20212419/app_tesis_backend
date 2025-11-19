@@ -67,22 +67,22 @@ help:
 # Build Docker image
 docker-build:
 	@echo "Building Docker image..."
-	docker-compose build
+	docker compose build
 
 # Run Docker container
 docker-run:
 	@echo "Running Docker container..."
-	docker-compose up -d
+	docker compose up -d
 
 # Stop Docker container
 docker-down:
 	@echo "Stopping Docker container..."
-	docker-compose down
+	docker compose down
 
 # View Docker logs
 docker-logs:
 	@echo "Viewing Docker logs..."
-	docker-compose logs -f
+	docker compose logs -f
 
 # Show Docker help
 docker-help:
