@@ -511,16 +511,19 @@ def calculate_statistics(all_booklet_scores: list, question_amount: int) -> dict
     question_scores_map = {
         f"question_{i+1}": [] for i in range(question_amount)
     }
+    # Save question scores and recalculate total score
     for booklet in all_booklet_scores:
-        total_score = booklet.get("total_score", 0.0)
-        if isinstance(total_score, (int, float)):
-            total_scores.append(total_score)
+        current_booklet_sum = 0.0
 
         for i in range(question_amount):
             q_key = f"question_{i+1}"
             q_score = booklet.get(q_key, 0.0)
             if isinstance(q_score, (int, float)):
                 question_scores_map[q_key].append(q_score)
+                current_booklet_sum += q_score
+
+        booklet["total_score"] = current_booklet_sum
+        total_scores.append(current_booklet_sum)
 
     stats_dict = {}
     if total_scores:
