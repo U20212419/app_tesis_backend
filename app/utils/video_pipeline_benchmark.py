@@ -512,16 +512,19 @@ def calculate_statistics(all_booklet_scores: list, question_amount: int) -> dict
     question_scores_map = {
         f"question_{i+1}": [] for i in range(question_amount)
     }
+    # Save question scores and recalculate total score
     for booklet in all_booklet_scores:
-        total_score = booklet.get("total_score", 0.0)
-        if isinstance(total_score, (int, float)):
-            total_scores.append(total_score)
+        current_booklet_sum = 0.0
 
         for i in range(question_amount):
             q_key = f"question_{i+1}"
             q_score = booklet.get(q_key, 0.0)
             if isinstance(q_score, (int, float)):
                 question_scores_map[q_key].append(q_score)
+                current_booklet_sum += q_score
+
+        booklet["total_score"] = current_booklet_sum
+        total_scores.append(current_booklet_sum)
 
     stats_dict = {}
     if total_scores:
@@ -891,7 +894,7 @@ def select_timestamps_interactively(video_path: str) -> List[int]:
         cv2.putText(display_frame, f"Saved: {len(selected_timestamps)}", (10, 90), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
         
-        cv2.imshow("Timestamp Selector (Use 'S' to save, 'Q' to quit)", display_frame)
+        cv2.imshow("Timestamp Selector (Use 'S' to save, 'P' to pause/resume, 'Q' to quit)", display_frame)
 
         # Speed control: If paused, wait indefinitely (0 ms) until a key is pressed
         # Otherwise, wait 30 ms between frames
