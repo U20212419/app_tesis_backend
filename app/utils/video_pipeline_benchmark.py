@@ -1,5 +1,4 @@
-"""Video processing pipeline for extracting and analyzing score tables from videos."""
-import json
+"""Utility to benchmark execution time of video processing pipeline."""
 import math
 from pathlib import Path
 import time
@@ -23,6 +22,8 @@ def sharpness(frame):
     Returns:
         float: Sharpness score.
     """
+    if frame is None or frame.size == 0:
+        return 0.0
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
     return laplacian_var
@@ -40,8 +41,6 @@ def select_best_frame(frames):
         return None
     best_frame = max(frames, key=sharpness)
     return best_frame
-
-import numpy as np
 
 def crop_score_table(frame, min_area_ratio=0.05):
     """Detect and crop the score table region from a frame.
@@ -623,36 +622,63 @@ def process_video_benchmarked(video_path: str, stride=10,
             fps = 30  # Default to 30 if FPS cannot be determined
 
         # Convert timestamps in milliseconds to frame indexes
-        target_frame_indexes = set()
+        target_frame_indexes_set = set()
         for timestamp_ms in frames_indexes:
             frame_idx = int((timestamp_ms / 1000.0) * fps)
-            target_frame_indexes.add(frame_idx)
+            target_frame_indexes_set.add(frame_idx)
+        target_frame_indexes = sorted(list(target_frame_indexes_set))
 
-        # Iterate through video and extract specified frames
-        frame_idx_counter = 0
-        while True:
-            ret = cap.grab()
-            if not ret:
-                break
+        SEARCH_WINDOW = 5  # Number of frames to search before and after target index
 
-            # Check if current frame index is in target indexes
-            if frame_idx_counter in target_frame_indexes:
-                ret, frame = cap.retrieve()
-                if ret:
-                    t_c_start = time.perf_counter()
-                    crop = crop_score_table(frame)
-                    t_crop += (time.perf_counter() - t_c_start)
-                    if crop is not None:
-                        frames_to_process.append(crop)
+        frames_to_decode = set()
 
-                # Remove processed index to speed up future checks
-                target_frame_indexes.remove(frame_idx_counter)
+        # Determine frames to decode around each target frame
+        for t in target_frame_indexes:
+            start = max(0, t - SEARCH_WINDOW)
+            end = t + SEARCH_WINDOW + 1
+            frames_to_decode.update(range(start, end))
 
-                # Break early if all target frames have been processed
-                if not target_frame_indexes:
+        if target_frame_indexes:
+            scan_start = max(0, target_frame_indexes[0] - SEARCH_WINDOW)
+            scan_end = target_frame_indexes[-1] + SEARCH_WINDOW
+
+            cap.set(cv2.CAP_PROP_POS_FRAMES, scan_start)
+            frame_curr = scan_start
+
+            best_candidates = {}  # Key: target_idx, Value: {'score': float, 'frame': img}
+
+            while frame_curr <= scan_end:
+                ret = cap.grab()
+                if not ret:
                     break
 
-            frame_idx_counter += 1
+                if frame_curr in frames_to_decode:
+                    ret, frame = cap.retrieve()
+                    if ret:
+                        # Calculate frame sharpness
+                        current_score = sharpness(frame)
+
+                        # Check for what target frames this frame could be a candidate for
+                        for target in target_frame_indexes:
+                            if target - SEARCH_WINDOW <= frame_curr <= target + SEARCH_WINDOW:
+                                if (target not in best_candidates or 
+                                    current_score > best_candidates[target]['score']):
+                                    best_candidates[target] = {
+                                        'score': current_score,
+                                        'frame': frame.copy()
+                                    }
+                frame_curr += 1
+
+        # After processing, collect the best candidates
+        for target in target_frame_indexes:
+            crop = None
+            if target in best_candidates:
+                best_frame = best_candidates[target]['frame']
+                t_c_start = time.perf_counter()
+                crop = crop_score_table(best_frame)
+                t_crop += (time.perf_counter() - t_c_start)
+
+            frames_to_process.append(crop)
     else:
         # Preprocessing for frame relevance model
         preprocess = transforms.Compose([
@@ -720,6 +746,11 @@ def process_video_benchmarked(video_path: str, stride=10,
     final_detections = []
     det_start = time.perf_counter()
     for idx, img_orig in enumerate(frames_to_process):
+        # Add an empty tensor if no crop was found to keep indexing consistent
+        if img_orig is None:
+            final_detections.append(torch.empty((0, 6), device=device))
+            continue
+
         img_rgb = cv2.cvtColor(img_orig, cv2.COLOR_BGR2RGB)
 
         crop_resized, ratio, pad = letterbox(img_rgb, new_shape=1280)
@@ -776,6 +807,15 @@ def process_video_benchmarked(video_path: str, stride=10,
     }
     all_booklet_scores = []
     for detections, img_orig in zip(final_detections, frames_to_process):
+        # If no image was found or no detections, return zeros for that booklet
+        if img_orig is None or len(detections) == 0:
+            empty_json = {}
+            for i in range(question_amount):
+                empty_json[f"question_{i+1}"] = 0.0
+            empty_json["total_score"] = 0.0
+            all_booklet_scores.append(empty_json)
+            continue
+
         char_detections_in_frame = []
         for det in detections:
             x1f, y1f, x2f, y2f, conf, cls = det.cpu().numpy()
@@ -879,6 +919,9 @@ def select_timestamps_interactively(video_path: str) -> List[int]:
                 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)  # Restart video
                 continue
 
+        if frame is None:
+            break
+
         # Copy frame for display
         display_frame = frame.copy()
 
@@ -894,7 +937,8 @@ def select_timestamps_interactively(video_path: str) -> List[int]:
         cv2.putText(display_frame, f"Saved: {len(selected_timestamps)}", (10, 90), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
         
-        cv2.imshow("Timestamp Selector (Use 'S' to save, 'P' to pause/resume, 'Q' to quit)", display_frame)
+        cv2.imshow("Timestamp Selector (Use 'S' to save, "
+                   "'P' to pause/resume, 'Q' to quit)", display_frame)
 
         # Speed control: If paused, wait indefinitely (0 ms) until a key is pressed
         # Otherwise, wait 30 ms between frames
@@ -903,7 +947,7 @@ def select_timestamps_interactively(video_path: str) -> List[int]:
 
         if key == ord('q'):
             break
-        elif key == ord('p'):
+        if key == ord('p'):
             paused = not paused
         elif key == ord('s'):
             ts_int = int(curr_ms)
@@ -912,7 +956,8 @@ def select_timestamps_interactively(video_path: str) -> List[int]:
             # Small visual flash to confirm
             cv2.putText(display_frame, "SAVED!", (10, 120),
                         cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 3)
-            cv2.imshow("Timestamp Selector (Use 'S' to save, 'Q' to quit)", display_frame)
+            cv2.imshow("Timestamp Selector (Use 'S' to save, "
+                       "'P' to pause/resume, 'Q' to quit)", display_frame)
             cv2.waitKey(200) # Brief pause to see the message
 
     cap.release()
@@ -948,7 +993,7 @@ if __name__ == "__main__":
         )
         
         # Save metrics
-        for key in history:
+        for key in history.keys():
             history[key].append(stats[key])
 
     print(f"\n{'='*60}")
