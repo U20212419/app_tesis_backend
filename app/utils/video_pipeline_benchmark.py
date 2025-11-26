@@ -24,6 +24,11 @@ def sharpness(frame):
     """
     if frame is None or frame.size == 0:
         return 0.0
+    # If the image is too big, resize it for faster processing
+    h, w = frame.shape[:2]
+    if w > 400:
+        scale = 400.0 / w
+        frame = cv2.resize(frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
     return laplacian_var
@@ -348,7 +353,7 @@ def finalize_scores_by_slotting(char_detections: list, question_amount: int,
         else:
             relative_y = char['y_center'] - y_min_anchor
             slot_index = int(round(relative_y / slot_height_real))
-        
+
         slot_index = max(0, min(slot_index, num_rows - 1))
         slots[slot_index].append(char)
 
@@ -628,7 +633,7 @@ def process_video_benchmarked(video_path: str, stride=10,
             target_frame_indexes_set.add(frame_idx)
         target_frame_indexes = sorted(list(target_frame_indexes_set))
 
-        SEARCH_WINDOW = 5  # Number of frames to search before and after target index
+        SEARCH_WINDOW = 2  # Number of frames to search before and after target index
 
         frames_to_decode = set()
 
@@ -903,7 +908,7 @@ def select_timestamps_interactively(video_path: str) -> List[int]:
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         raise ValueError(f"Cannot open video file: {video_path}")
-    
+
     selected_timestamps = []
     paused = False
 
@@ -962,7 +967,7 @@ def select_timestamps_interactively(video_path: str) -> List[int]:
 
     cap.release()
     cv2.destroyAllWindows()
-    
+
     # Return unique sorted timestamps
     return sorted(list(set(selected_timestamps)))
 
@@ -972,11 +977,12 @@ if __name__ == "__main__":
     selected_timestamps = None
 
     # Select timestamps interactively (uncomment to use)
-    selected_timestamps = select_timestamps_interactively(video_path)
+    #selected_timestamps = select_timestamps_interactively(video_path)
+    selected_timestamps = [466, 1999, 3865, 6164, 8296, 10828, 12927, 15426, 17359, 20591, 22756, 25222, 28121, 30986, 33319, 35618, 37750, 41715, 43548, 47279, 49712, 52077, 54343, 57975, 59841, 64339, 67038, 68870, 73868, 75667, 77500, 80232, 82264, 84597, 87196, 90761, 93193, 96858]
     print(f"Selected timestamps (ms): {selected_timestamps}")
-    
+
     print(f"Starting Benchmark ({ITERATIONS} iterations) for: {video_path}\n")
-    
+
     # Store results of each iteration
     history = {
         "selection": [], "crop": [], "detection": [],
@@ -985,13 +991,13 @@ if __name__ == "__main__":
 
     for i in range(ITERATIONS):
         print(f"Running iteration {i+1}/{ITERATIONS}...", end="\r", flush=True)
-        
+
         # Benchmark call
         _, stats = process_video_benchmarked(
             video_path, stride=10, iou_threshold=0.5, question_amount=4,
             frames_indexes=selected_timestamps
         )
-        
+
         # Save metrics
         for key in history.keys():
             history[key].append(stats[key])

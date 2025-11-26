@@ -23,6 +23,11 @@ def sharpness(frame):
     """
     if frame is None or frame.size == 0:
         return 0.0
+    # If the image is too big, resize it for faster processing
+    h, w = frame.shape[:2]
+    if w > 400:
+        scale = 400.0 / w
+        frame = cv2.resize(frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
     return laplacian_var

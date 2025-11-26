@@ -56,7 +56,7 @@ class CourseService:
         db_course = Course(
             **course_data,
             id_user=user_id,
-            active_code=course_data['code']
+            active_code=f"{course_data['code']}_{user_id}"
         )
 
         try:
@@ -117,7 +117,7 @@ class CourseService:
         for key, value in update_data.items():
             setattr(db_course, key, value)
         if 'code' in update_data:
-            db_course.active_code = update_data['code']
+            db_course.active_code = f"{update_data['code']}_{user_id}"
 
         try:
             self.db.commit()

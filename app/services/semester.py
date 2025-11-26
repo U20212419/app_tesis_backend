@@ -57,7 +57,7 @@ class SemesterService:
         db_semester = Semester(
             **semester_data,
             id_user=user_id,
-            active_semester_key=semester_key
+            active_semester_key=f"{semester_key}_{user_id}"
         )
 
         try:
@@ -117,7 +117,7 @@ class SemesterService:
             setattr(db_semester, key, value)
         if 'year' in update_data or 'number' in update_data:
             semester_key = f"{db_semester.year}-{db_semester.number}"
-            db_semester.active_semester_key = semester_key
+            db_semester.active_semester_key = f"{semester_key}_{user_id}"
 
         try:
             self.db.commit()
@@ -131,7 +131,7 @@ class SemesterService:
 
             if db_error_code == 1062:  # MySQL duplicate entry error code
                 logger.warning("Duplicate semester key '%s' for user %s when updating.",
-                               db_semester.active_semester_key, user_id)
+                               semester_key, user_id)
                 raise SemesterKeyDuplicateException() from e
 
             logger.error("Integrity error while updating semester %s for user %s: %s",

@@ -28,7 +28,7 @@ class Course(Base):
 
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
 
-    active_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True, unique=True)
+    active_code: Mapped[Optional[str]] = mapped_column(String(110), nullable=True, unique=True)
 
     courses_in_semester: Mapped[List["CourseInSemester"]] = relationship( # type: ignore
         "CourseInSemester", back_populates="course"
