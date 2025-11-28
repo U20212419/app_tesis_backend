@@ -42,6 +42,7 @@ Before deploying, ensure you have the following external services provisioned:
       * Policy: Ensure the IAM user has `PutObject`, `GetObject`, `DeleteObject` and `ListBucket` permissions.
   * **EC2 Instance:** Tested on `t3.medium` (Amazon Linux 2023). Requires 4GB Swap configuration for ML models loading.
   * **RDS:** Use an AWS RDS MySQL instance.
+      * Initialization: You must set up the database schema manually by executing the script located at `db/create_tables.sql` using a MySQL client (e.g., Workbench or DBeaver).
 
 ### 2\. Google Firebase
 
